@@ -504,11 +504,8 @@ function renderSetup(){
     <div class="players-list" id="players-list">${playersHtml}</div>
     <button class="add" id="add-player">＋ プレイヤーを追加</button>
 
-    <label>ウルフの人数</label>
-    <input type="number" id="wolf-count" min="1" max="${Math.max(1, Math.floor(filledCount(state.players)/2))}" value="${state.wolfCount}">
-
     <button class="primary" id="start-btn">ゲームを始める</button>
-    <small class="foot">おすすめ人数は4〜6人(3人でも可、9人以上は非推奨)。端末を順番に回して遊びます。</small>
+    <small class="foot">人数は3〜8人。ウルフは1人固定です。端末を順番に回して遊びます。</small>
   `);
 
   document.querySelectorAll(".pname-input").forEach(inp=>{
@@ -519,12 +516,6 @@ function renderSetup(){
     });
     inp.addEventListener("input", e=>{
       state.players[+e.target.dataset.idx] = e.target.value;
-      const wc = document.getElementById("wolf-count");
-      if(wc){
-        const newMax = Math.max(1, Math.floor(filledCount(state.players)/2));
-        wc.max = newMax;
-        if(+wc.value > newMax){ wc.value = newMax; state.wolfCount = newMax; }
-      }
     });
     inp.addEventListener("blur", e=>{
       const trimmed = e.target.value.trim();
@@ -539,24 +530,19 @@ function renderSetup(){
     });
   });
   document.getElementById("add-player").addEventListener("click", ()=>{
-    if(state.players.length>=10) return;
+    if(state.players.length>=8) return;
     state.players.push("");
     render();
-  });
-  document.getElementById("wolf-count").addEventListener("input", e=>{
-    state.wolfCount = Math.max(1, +e.target.value || 1);
   });
   document.getElementById("start-btn").addEventListener("click", ()=>{
     const names = state.players.map(p=>p.trim());
     const filled = names.filter(n=>n.length>0);
     if(filled.length < 3){ alert("3人以上の名前を入力してください(2人には対応していません)"); return; }
+    if(filled.length > 8){ alert("プレイヤーは最大8人までです"); return; }
     if(new Set(filled.map(normalizeName)).size !== filled.length){ alert("名前が重複しています"); return; }
-    if(filled.length >= 9){
-      if(!confirm("9人以上は推奨人数を超えています。ゲームテンポが間延びする可能性がありますが続けますか?")) return;
-    }
     state.players = filled;
     saveNames(filled);
-    if(state.wolfCount >= state.players.length){ alert("ウルフの人数が多すぎます"); return; }
+    state.wolfCount = 1;
     setupGame();
   });
 }
@@ -667,7 +653,6 @@ function renderTalk(){
   `);
 
   function toDraw(){
-    shuffle(state.order);
     state.passIndex = 0;
     state.screen = "pass-draw";
     render();
@@ -700,10 +685,6 @@ function renderPassDraw(){
       <div class="pass-screen">
         <div>端末をこの人に渡してください</div>
         <div class="name">${escapeHtml(name)}</div>
-        <div class="reveal-box">
-          <div class="word">${escapeHtml(state.roles[i]==="wolf"?state.topic.wolf:state.topic.citizen)}</div>
-          <div class="hint">このお題の絵を${state.drawSeconds}秒で描いてください</div>
-        </div>
         <button class="primary" id="start-draw" disabled>描き始める</button>
       </div>
     `);
@@ -725,12 +706,12 @@ function renderPassDraw(){
     <canvas id="canvas" width="500" height="360"></canvas>
     <div class="tools">
       ${PEN_COLORS.map(c=>`<div class="swatch ${(!isEraser && c===currentColor)?'active':''}" style="background:${c}" data-color="${c}"></div>`).join("")}
-      <button class="tool-btn ${!isEraser && currentSize===3?'active':''}" data-size="3">細</button>
-      <button class="tool-btn ${!isEraser && currentSize===8?'active':''}" data-size="8">太</button>
+      <button class="tool-btn" id="pen-size-btn" title="右クリック（またはダブルタップ）しながら左右にドラッグで太さ変更">ペンの太さ <span id="pen-size-label">${currentSize}</span></button>
       <button class="tool-btn ${isEraser?'active':''}" id="eraser-toggle">消しゴム</button>
       <button class="tool-btn" id="undo-canvas">一手戻す</button>
       <button class="tool-btn" id="clear-canvas">全部消す</button>
     </div>
+    <div class="tap-hint" id="pen-size-hint">太さ変更: PCは右クリック押しながら左右にドラッグ / スマホは素早く2回タップ後そのまま左右にドラッグ</div>
     <button class="primary" id="done-draw">描き終わった</button>
   `);
 
@@ -741,6 +722,16 @@ function renderPassDraw(){
   canvasCtx.fillRect(0,0,canvas.width,canvas.height);
   canvasCtx.lineJoin = "round";
   canvasCtx.lineCap = "round";
+  canvas.addEventListener("contextmenu", e=> e.preventDefault());
+
+  const MIN_SIZE = 2, MAX_SIZE = 24;
+  const sizeLabel = document.getElementById("pen-size-label");
+  function updateSizeLabel(){ if(sizeLabel) sizeLabel.textContent = currentSize; }
+
+  let resizingPen = false;
+  let resizeStartX = 0;
+  let resizeStartSize = currentSize;
+  let lastTouchEnd = { time:0, x:0, y:0 };
 
   let undoStack = [canvas.toDataURL()];
   let points = [];
@@ -764,14 +755,36 @@ function renderPassDraw(){
     const cy = (e.touches? e.touches[0].clientY : e.clientY);
     return [(cx-rect.left)*scaleX, (cy-rect.top)*scaleY];
   }
+  function clientX(e){
+    return e.touches ? e.touches[0].clientX : e.clientX;
+  }
+  function startResize(clientXPos){
+    resizingPen = true;
+    resizeStartX = clientXPos;
+    resizeStartSize = currentSize;
+  }
+  function updateResize(clientXPos){
+    const delta = clientXPos - resizeStartX;
+    currentSize = Math.round(Math.min(MAX_SIZE, Math.max(MIN_SIZE, resizeStartSize + delta/6)));
+    updateSizeLabel();
+  }
   function start(e){
     e.preventDefault();
+    if(e.button === 2){
+      startResize(clientX(e));
+      return;
+    }
     drawing=true;
     pushUndoSnapshot();
     [lastX,lastY]=pos(e);
     points=[[lastX,lastY]];
   }
   function move(e){
+    if(resizingPen){
+      e.preventDefault();
+      updateResize(clientX(e));
+      return;
+    }
     if(!drawing) return;
     e.preventDefault();
     const [x,y]=pos(e);
@@ -801,22 +814,42 @@ function renderPassDraw(){
     }
     [lastX,lastY]=[x,y];
   }
-  function end(){ drawing=false; points=[]; }
+  function end(){ drawing=false; points=[]; resizingPen=false; }
+
+  function touchStart(e){
+    const t = e.touches[0];
+    const now = Date.now();
+    const isDoubleTap = (now - lastTouchEnd.time < 300) &&
+      Math.abs(t.clientX - lastTouchEnd.x) < 40 && Math.abs(t.clientY - lastTouchEnd.y) < 40;
+    if(isDoubleTap){
+      e.preventDefault();
+      startResize(t.clientX);
+      return;
+    }
+    start(e);
+  }
+  function touchEndHandler(e){
+    if(resizingPen){
+      end();
+      lastTouchEnd = { time:0, x:0, y:0 };
+      return;
+    }
+    const t = e.changedTouches[0];
+    lastTouchEnd = { time: Date.now(), x: t.clientX, y: t.clientY };
+    end();
+  }
 
   canvas.addEventListener("mousedown", start);
   canvas.addEventListener("mousemove", move);
   canvas.addEventListener("mouseup", end);
   canvas.addEventListener("mouseleave", end);
-  canvas.addEventListener("touchstart", start, {passive:false});
+  canvas.addEventListener("touchstart", touchStart, {passive:false});
   canvas.addEventListener("touchmove", move, {passive:false});
-  canvas.addEventListener("touchend", end);
+  canvas.addEventListener("touchend", touchEndHandler);
 
   function refreshToolButtons(){
     document.querySelectorAll(".swatch").forEach(sw=>{
       sw.classList.toggle("active", !isEraser && sw.dataset.color === currentColor);
-    });
-    document.querySelectorAll("[data-size]").forEach(btn=>{
-      btn.classList.toggle("active", !isEraser && +btn.dataset.size === currentSize);
     });
     const eraserBtn = document.getElementById("eraser-toggle");
     if(eraserBtn) eraserBtn.classList.toggle("active", isEraser);
@@ -825,13 +858,6 @@ function renderPassDraw(){
   document.querySelectorAll(".swatch").forEach(sw=>{
     sw.addEventListener("click", ()=>{
       currentColor = sw.dataset.color;
-      isEraser = false;
-      refreshToolButtons();
-    });
-  });
-  document.querySelectorAll("[data-size]").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      currentSize = +btn.dataset.size;
       isEraser = false;
       refreshToolButtons();
     });
