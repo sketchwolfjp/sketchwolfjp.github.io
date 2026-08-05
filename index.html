@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -20,29 +20,6 @@
     font-style: normal;
   }
   :root{
-    --bg:#262624;
-    --panel:#302f2d;
-    --panel2:#3d3d3a;
-    --ink:#f5f4ee;
-    --ink-dim:#b8b4a8;
-    --line:#44443f;
-    --amber:#e08a69;
-    --amber-dim:#4a372c;
-    --red:#c1443c;
-    --green:#5fae7b;
-    --shadow: 0 12px 30px rgba(0,0,0,0.4);
-    --canvas-bg:#f2efe9;
-    --pen:#3d3929;
-    --btn-primary-text:#262624;
-    --grad1: rgba(224,138,105,0.08);
-    --grad2: rgba(193,68,60,0.07);
-    --vote-select-bg: rgba(224,138,105,0.15);
-    --win-bg: rgba(95,174,123,0.15);
-    color-scheme: dark;
-    --overlay-text:#f2efe9;
-    --overlay-text-dim:#a7abc4;
-  }
-  [data-theme="light"]{
     --bg:#f5f4ee;
     --panel:#fbfaf7;
     --panel2:#f0eee6;
@@ -62,12 +39,15 @@
     --vote-select-bg: rgba(217,119,87,0.10);
     --win-bg: rgba(77,140,104,0.12);
     color-scheme: light;
+    --overlay-text:#f2efe9;
+    --overlay-text-dim:#a7abc4;
   }
-  *{box-sizing:border-box;}
-  html,body{height:100%;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%; overscroll-behavior:none;}
   @supports (height:100dvh){
     html,body{height:100dvh;}
   }
+  html{ touch-action:manipulation; }
   body{
     margin:0;
     min-height:100%;
@@ -81,7 +61,11 @@
     align-items:center;
     justify-content:center;
     padding:24px;
+    padding-top:max(24px, env(safe-area-inset-top));
     padding-bottom:max(24px, env(safe-area-inset-bottom));
+    padding-left:max(24px, env(safe-area-inset-left));
+    padding-right:max(24px, env(safe-area-inset-right));
+    overscroll-behavior:none;
   }
   #app{
     width:100%;
@@ -95,6 +79,15 @@
     box-shadow:var(--shadow);
     position:relative;
     overflow:hidden;
+  }
+  @media (max-width:420px){
+    body{ padding:14px; padding-top:max(14px, env(safe-area-inset-top)); padding-bottom:max(14px, env(safe-area-inset-bottom)); }
+    .card{ padding:20px 16px; border-radius:16px; }
+    h1{ font-size:1.7rem; }
+    h2{ font-size:1.2rem; }
+    .pass-screen .name{ font-size:2rem; }
+    .reveal-box .word{ font-size:1.9rem; }
+    .big-timer{ font-size:3.8rem; }
   }
   .card::before{
     content:"";
@@ -163,6 +156,7 @@
     flex-shrink:0;
     -webkit-tap-highlight-color: transparent;
   }
+  .icon-btn:active{ transform:scale(0.92); }
   .icon-btn:hover{color:var(--red); border-color:var(--red);}
   button.primary{
     width:100%;
@@ -171,14 +165,17 @@
     color:var(--btn-primary-text);
     border:none;
     border-radius:12px;
-    padding:14px;
+    padding:16px;
+    min-height:52px;
     font-size:1.05rem;
     font-weight:700;
     cursor:pointer;
     font-family:'Noto Serif JP', 'Hiragino Mincho ProN', 'Hiragino Sans', 'Yu Gothic', sans-serif;
     transition:transform .12s ease, filter .12s ease;
+    -webkit-tap-highlight-color:transparent;
   }
   button.primary:hover{filter:brightness(1.08); transform:translateY(-1px);}
+  button.primary:active{ transform:scale(0.98); }
   button.primary:disabled{opacity:0.4; cursor:not-allowed; transform:none;}
   button.ghost{
     width:100%;
@@ -187,12 +184,15 @@
     color:var(--ink-dim);
     border:1px solid var(--line);
     border-radius:12px;
-    padding:12px;
+    padding:13px;
+    min-height:48px;
     font-size:0.95rem;
     cursor:pointer;
     font-family:'Noto Serif JP', 'Hiragino Mincho ProN', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    -webkit-tap-highlight-color:transparent;
   }
   button.ghost:hover{color:var(--ink); border-color:var(--ink-dim);}
+  button.ghost:active{ transform:scale(0.98); }
   button.add{
     background:transparent;
     border:1px dashed var(--line);
@@ -292,20 +292,25 @@
     touch-action:none;
     cursor:crosshair;
     box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+    -webkit-user-select:none;
+    user-select:none;
+    -webkit-touch-callout:none;
   }
   .tools{
-    display:flex; gap:8px; align-items:center; margin:12px 0;
+    display:flex; gap:10px; align-items:center; margin:12px 0;
     flex-wrap:wrap;
   }
   .swatch{
-    width:28px; height:28px; border-radius:50%;
+    width:36px; height:36px; border-radius:50%;
     border:2px solid transparent; cursor:pointer; flex-shrink:0;
+    -webkit-tap-highlight-color:transparent;
   }
   .swatch.active{border-color:var(--amber); transform:scale(1.15);}
   .tool-btn{
     background:var(--panel2); border:1px solid var(--line); color:var(--ink-dim);
-    border-radius:8px; padding:7px 12px; font-size:0.85rem; cursor:pointer;
+    border-radius:8px; padding:10px 14px; min-height:40px; font-size:0.85rem; cursor:pointer;
     font-family:inherit;
+    -webkit-tap-highlight-color:transparent;
   }
   .tool-btn.active{ color:var(--amber); border-color:var(--amber);}
   .gallery{
@@ -317,6 +322,7 @@
   .gallery-item{
     background:var(--panel2); border:1px solid var(--line); border-radius:12px;
     padding:8px; text-align:center;
+    -webkit-tap-highlight-color:transparent;
   }
   .gallery-item img{width:100%; border-radius:8px; background:var(--canvas-bg);}
   .gallery-item .pname{
@@ -326,7 +332,8 @@
   .vote-option{
     display:flex; align-items:center; justify-content:space-between;
     background:var(--panel2); border:1px solid var(--line); border-radius:10px;
-    padding:12px 16px; margin-bottom:8px; cursor:pointer;
+    padding:14px 16px; margin-bottom:8px; cursor:pointer; min-height:48px;
+    -webkit-tap-highlight-color:transparent;
   }
   .vote-option:hover{border-color:var(--amber);}
   .vote-option.selected{border-color:var(--amber); background:var(--vote-select-bg);}
@@ -359,28 +366,10 @@
   .tap-hint{
     color:var(--ink-dim); font-size:0.85rem; margin-top:4px;
   }
-  .theme-toggle{
-    position:fixed;
-    left:18px; bottom:18px;
-    z-index:500;
-    width:48px; height:48px;
-    border-radius:50%;
-    background:var(--panel2);
-    border:1px solid var(--line);
-    color:var(--ink);
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer;
-    box-shadow:var(--shadow);
-    font-size:1.2rem;
-    transition:transform .15s ease, background .2s ease;
-  }
-  .theme-toggle:hover{ transform:translateY(-2px); }
-  .theme-toggle:active{ transform:translateY(0) scale(0.95); }
 </style>
 </head>
 <body>
 <div id="app" aria-live="polite"></div>
-<button class="theme-toggle" id="theme-toggle" title="ライト/ダークモード切り替え" aria-label="テーマ切り替え">🌙</button>
 
 <script>
 window.addEventListener("error", (e)=>{
@@ -401,33 +390,6 @@ window.addEventListener("unhandledrejection", (e)=>{
     }
   } catch(_){}
 });
-
-/* ---------- テーマ切り替え ---------- */
-(function(){
-  const btn = document.getElementById("theme-toggle");
-
-  let saved = null;
-  try { saved = localStorage.getItem("sketchwolf-theme"); } catch(e){}
-  const theme = saved === "light" ? "light" : "dark";
-  applyTheme(theme);
-
-  btn.addEventListener("click", ()=>{
-    const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
-    const next = current === "light" ? "dark" : "light";
-    applyTheme(next);
-    try { localStorage.setItem("sketchwolf-theme", next); } catch(e){}
-  });
-
-  function applyTheme(t){
-    if(t === "light"){
-      document.documentElement.setAttribute("data-theme", "light");
-      btn.textContent = "☀️";
-    } else {
-      document.documentElement.removeAttribute("data-theme");
-      btn.textContent = "🌙";
-    }
-  }
-})();
 
 /* ---------- お題ペア ---------- */
 const TOPIC_PAIRS = [
@@ -491,7 +453,6 @@ function render(){
     if(state.screen === "talk") return renderTalk();
     if(state.screen === "pass-draw") return renderPassDraw();
     if(state.screen === "gallery") return renderGallery();
-    if(state.screen === "defense") return renderDefense();
     if(state.screen === "vote") return renderVote();
     if(state.screen === "result") return renderResult();
   } catch(err){
@@ -623,7 +584,7 @@ function setupGame(){
 function renderIntro(){
   card(`
     <div class="badge">ルール確認</div>
-    <h2>これから配布 → 会話 → お絵描き → 議論 → 投票の順に進みます</h2>
+    <h2>これから配布 → 会話 → お絵描き → 投票の順に進みます</h2>
     <p style="color:var(--ink-dim); line-height:1.7; font-size:0.92rem;">
       端末を1人ずつ順番に回します。自分の番が来たら、画面に表示されるお題を他の人に見えないように確認してください。<br><br>
       市民は全員同じお題、ウルフだけ少し違うお題を見ます。お題をそのまま口に出すのは禁止です。
@@ -682,7 +643,7 @@ function renderPassTopic(){
 }
 
 function phaseSegs(current){
-  const phases = ["topic","talk","draw","gallery","defense","vote","result"];
+  const phases = ["topic","talk","draw","gallery","vote","result"];
   return phases.map(p=>{
     const idx = phases.indexOf(p), curIdx = phases.indexOf(current);
     let cls = "seg";
@@ -782,6 +743,7 @@ function renderPassDraw(){
   canvasCtx.lineCap = "round";
 
   let undoStack = [canvas.toDataURL()];
+  let points = [];
   function pushUndoSnapshot(){
     undoStack.push(canvas.toDataURL());
     if(undoStack.length > 20) undoStack.shift();
@@ -807,11 +769,13 @@ function renderPassDraw(){
     drawing=true;
     pushUndoSnapshot();
     [lastX,lastY]=pos(e);
+    points=[[lastX,lastY]];
   }
   function move(e){
     if(!drawing) return;
     e.preventDefault();
     const [x,y]=pos(e);
+    points.push([x,y]);
     if(isEraser){
       canvasCtx.strokeStyle = bgColor;
       canvasCtx.lineWidth = currentSize * 3;
@@ -819,13 +783,25 @@ function renderPassDraw(){
       canvasCtx.strokeStyle = currentColor;
       canvasCtx.lineWidth = currentSize;
     }
-    canvasCtx.beginPath();
-    canvasCtx.moveTo(lastX,lastY);
-    canvasCtx.lineTo(x,y);
-    canvasCtx.stroke();
+    if(points.length < 3){
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(lastX,lastY);
+      canvasCtx.lineTo(x,y);
+      canvasCtx.stroke();
+    } else {
+      const n = points.length;
+      const [x0,y0] = points[n-3];
+      const [x1,y1] = points[n-2];
+      const midPrev = [(x0+x1)/2, (y0+y1)/2];
+      const midCurr = [(x1+x)/2, (y1+y)/2];
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(midPrev[0], midPrev[1]);
+      canvasCtx.quadraticCurveTo(x1, y1, midCurr[0], midCurr[1]);
+      canvasCtx.stroke();
+    }
     [lastX,lastY]=[x,y];
   }
-  function end(){ drawing=false; }
+  function end(){ drawing=false; points=[]; }
 
   canvas.addEventListener("mousedown", start);
   canvas.addEventListener("mousemove", move);
@@ -914,17 +890,13 @@ function renderGallery(){
     <h2>全員の絵を見比べて、会話と食い違う人を探しましょう</h2>
     <div class="tap-hint" style="margin-bottom:10px;">画力ではなく、お題との一致を推理するゲームです。タップで拡大できます</div>
     <div class="gallery">${items}</div>
-    <button class="primary" id="to-defense">議論タイムへ</button>
-    <button class="ghost" id="to-vote">議論タイムを飛ばして投票へ</button>
+    <button class="primary" id="to-vote">投票へ</button>
   `);
   document.querySelectorAll("[data-zoom]").forEach(el=>{
     el.addEventListener("click", ()=>{
       const i = +el.dataset.zoom;
       showZoom(state.drawings[i], state.players[i]);
     });
-  });
-  document.getElementById("to-defense").addEventListener("click", ()=>{
-    state.screen = "defense"; render();
   });
   document.getElementById("to-vote").addEventListener("click", ()=>{
     state.screen = "vote"; render();
@@ -943,25 +915,6 @@ function showZoom(src, name){
   `;
   overlay.addEventListener("click", ()=> overlay.remove());
   document.body.appendChild(overlay);
-}
-
-/* ---------- 議論タイム ---------- */
-function renderDefense(){
-  card(`
-    <div class="phase-strip">${phaseSegs("defense")}</div>
-    <div class="eyebrow">議論タイム</div>
-    <h2>「なんでその絵になったの?」お互いに指摘し合いましょう</h2>
-    <div class="tap-hint" style="margin-bottom:10px;">ウルフは必死に言い訳を、市民は矛盾を突きましょう</div>
-    <div class="center">
-      ${circleTimerHtml(30)}
-    </div>
-    <button class="ghost" id="skip">スキップして投票へ</button>
-  `);
-  startTimer(30, ()=>{ state.screen="vote"; render(); });
-  document.getElementById("skip").addEventListener("click", ()=>{
-    clearTimerInterval();
-    state.screen="vote"; render();
-  });
 }
 
 /* ---------- 投票（パス&プレイ） ---------- */
@@ -1032,7 +985,7 @@ function renderResult(){
     <div class="result-row" style="flex-direction:column; align-items:stretch; gap:6px;">
       <div style="display:flex; justify-content:space-between;">
         <span>${escapeHtml(name)} <span style="color:var(--ink-dim); font-size:0.85rem;">(${tally[i]}票)</span></span>
-        <span class="${state.roles[i]==='wolf'?'tag-wolf':'tag-citizen'}">${state.roles[i]==='wolf'?'🐺 ウルフ':'市民'}</span>
+        <span class="${state.roles[i]==='wolf'?'tag-wolf':'tag-citizen'}">${state.roles[i]==='wolf'?'ウルフ':'市民'}</span>
       </div>
       <div class="timer-bar-track">
         <div class="vote-bar-fill" data-final="${(tally[i]/maxTally)*100}" style="height:100%; width:0%; border-radius:99px; background:${state.roles[i]==='wolf'?'var(--red)':'var(--amber)'}; transition:width 0.9s cubic-bezier(.2,.8,.3,1);"></div>
