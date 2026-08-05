@@ -11,7 +11,7 @@
 <title>Sketch Wolf — 会話と絵で暴け</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Yomogi&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Noto+Serif+JP:wght@200..900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Yomogi&family=Noto+Serif+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   .noto-serif-jp-uniquifier {
     font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Hiragino Sans", "Yu Gothic", sans-serif;
@@ -370,6 +370,66 @@
   .tap-hint{
     color:var(--ink-dim); font-size:0.85rem; margin-top:4px;
   }
+  /* ---------- プレイヤー固定色のバッジ ---------- */
+  .player-color-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:5px 12px 5px 6px;
+    border-radius:99px;
+    font-size:0.85rem;
+    background:var(--panel2);
+    border:1px solid var(--line);
+    font-weight:600;
+    color:var(--ink);
+    line-height:1;
+  }
+  .player-color-badge.strong{
+    background:var(--panel);
+    border:1px solid var(--ink-dim);
+    font-size:0.95rem;
+    padding:6px 14px 6px 6px;
+  }
+  .pdot{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:22px;
+    height:22px;
+    padding:0 7px;
+    border-radius:99px;
+    color:#fff;
+    font-size:0.75rem;
+    font-weight:700;
+    letter-spacing:0;
+    flex-shrink:0;
+    box-shadow:0 0 0 1px rgba(255,255,255,0.6) inset;
+  }
+  .player-color-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    font-size:0.85rem;
+    color:var(--ink-dim);
+    margin:4px 0 10px;
+  }
+  .pname .pdot, .vname .pdot, .result-name .pdot{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:22px;
+    height:22px;
+    padding:0 7px;
+    border-radius:99px;
+    color:#fff;
+    font-size:0.72rem;
+    font-weight:700;
+    margin-right:6px;
+    vertical-align:middle;
+    box-shadow:0 0 0 1px rgba(255,255,255,0.6) inset;
+  }
+  .vname{ display:inline-flex; align-items:center; }
 </style>
 </head>
 <body>
@@ -431,7 +491,7 @@ let state = {
   roles: [],          // per player: "citizen" | "wolf"
   order: [],           // shuffled index order for pass phases
   passIndex: 0,
-  drawings: [],        // dataURLs per player index
+  drawings: [],        // image URLs per player index
   votes: {},           // playerIndex(voter) -> playerIndex(target)
   voteIndex: 0,
   timer: null,
@@ -442,9 +502,22 @@ let state = {
   hintTime: 10,
   drawSeconds: 45,
   talkSeconds: 30,
+  playerColors: [],    // index -> hex color (fixed per player number)
 };
 
 const app = document.getElementById("app");
+
+function revokeDrawingUrl(url){
+  if(typeof url === "string" && url.startsWith("blob:")){
+    try { URL.revokeObjectURL(url); } catch(e){}
+  }
+}
+function clearDrawingCache(){
+  if(Array.isArray(state.drawings)){
+    state.drawings.forEach(revokeDrawingUrl);
+  }
+  state.drawings = [];
+}
 
 function render(){
   try {
@@ -479,6 +552,7 @@ function renderCrash(err){
   const btn = document.getElementById("crash-restart");
   if(btn){
     btn.addEventListener("click", ()=>{
+      clearDrawingCache();
       state.screen = "setup";
       render();
     });
@@ -553,12 +627,17 @@ function renderSetup(){
 }
 
 function setupGame(){
+  clearDrawingCache();
   const pair = TOPIC_PAIRS[Math.floor(Math.random()*TOPIC_PAIRS.length)];
   state.topic = { citizen: pair[0], wolf: pair[1] };
   state.hintTime = Math.max(8, Math.round(60/state.players.length));
   state.drawSeconds = 45;
   state.talkSeconds = 30;
   const n = state.players.length;
+  // プレイヤー番号 → 固定色を再ゲームでも番号基準で安定的に割り当てる。
+  // 名前は localStorage に保存されており、プレイヤーの並び/順番は可変だが
+  // 「番号（1〜N）= 色」の対応は 1 から変わらない（端末を誰がパスしても変わらない）。
+  state.playerColors = Array.from({length: n}, (_, i)=> playerColor(i));
   const idxs = [...Array(n).keys()];
   shuffle(idxs);
   const wolves = new Set(idxs.slice(0, state.wolfCount));
@@ -600,6 +679,7 @@ function renderPassTopic(){
     <div class="pass-screen">
       <div>端末をこの人に渡してください</div>
       <div class="name">${escapeHtml(name)}</div>
+      <div class="player-color-row">${colorBadge(i, true)}</div>
       ${!revealed ? `
         <button class="primary" id="reveal-btn" disabled>タップしてお題を見る</button>
         <div class="tap-hint">周りに画面を見られないよう注意してください</div>
@@ -677,6 +757,35 @@ let currentColor = "#3d3929";
 let currentSize = 5;
 const PEN_COLORS = ["#3d3929","#c1443c","#d97757","#3b6ea5","#4d8c68"];
 
+/* ---------- プレイヤー固定色（番号→色／色名） ----------
+ * 公開画面（ギャラリー）と投票画面、投票結果で同じ色を表示し、誰の絵かを一目で識別できるようにする。
+ * 端末をパスして遊んでも番号→色の対応は不変。
+ */
+const PLAYER_COLORS = [
+  "#c1443c", // P1: 赤
+  "#3b6ea5", // P2: 青
+  "#c79100", // P3: 琥珀（＝視認性を高めた濃いめの黄）
+  "#3d7556", // P4: 深緑（赤と明度を離して色覚多様性に配慮）
+  "#7b5ea7", // P5: 紫
+  "#8b5a3c", // P6: 茶
+  "#c2538a", // P7: 桃
+  "#2a8d8a"  // P8: ターコイズ
+];
+const PLAYER_COLOR_NAMES = ["赤","青","琥珀","深緑","紫","茶","桃","ターコイズ"];
+function playerColor(idx){
+  return PLAYER_COLORS[idx % PLAYER_COLORS.length];
+}
+function playerColorName(idx){
+  return PLAYER_COLOR_NAMES[idx % PLAYER_COLOR_NAMES.length];
+}
+function colorBadge(idx, strong){
+  const c = playerColor(idx);
+  return `<span class="player-color-badge${strong?' strong':''}" aria-label="プレイヤー${idx+1}の色">
+    <span class="pdot" style="background:${c}">${idx+1}</span>
+    <span>プレイヤー${idx+1}・${playerColorName(idx)}</span>
+  </span>`;
+}
+
 function renderPassDraw(){
   const i = state.order[state.passIndex];
   const name = state.players[i];
@@ -690,6 +799,7 @@ function renderPassDraw(){
       <div class="pass-screen">
         <div>端末をこの人に渡してください</div>
         <div class="name">${escapeHtml(name)}</div>
+        <div class="player-color-row">${colorBadge(i, true)}</div>
         <button class="primary" id="start-draw" disabled>描き始める</button>
       </div>
     `);
@@ -702,10 +812,14 @@ function renderPassDraw(){
     return;
   }
 
+  // 描き始めに、そのプレイヤー固有の色を初期ペン色にセットする
+  currentColor = playerColor(i);
+
   card(`
     <div class="phase-strip">${phaseSegs("draw")}</div>
     <div class="eyebrow">${escapeHtml(name)} が描いています</div>
     <div class="center" style="margin-bottom:6px;">
+      <div class="player-color-row" style="margin-bottom:8px;">${colorBadge(i, true)}</div>
       ${circleTimerHtml(state.drawSeconds, true)}
     </div>
     <canvas id="canvas" width="500" height="360"></canvas>
@@ -726,6 +840,7 @@ function renderPassDraw(){
   canvasCtx.fillRect(0,0,canvas.width,canvas.height);
   canvasCtx.lineJoin = "round";
   canvasCtx.lineCap = "round";
+  if("imageSmoothingEnabled" in canvasCtx) canvasCtx.imageSmoothingEnabled = true;
   canvas.addEventListener("contextmenu", e=> e.preventDefault());
 
   const MIN_SIZE = 2, MAX_SIZE = 24;
@@ -865,11 +980,24 @@ function renderPassDraw(){
   });
 
   let finished = false;
-  function finishDrawing(){
+  async function finishDrawing(){
     if(finished) return;
     finished = true;
     clearTimerInterval();
-    state.drawings[i] = canvas.toDataURL("image/png");
+
+    const blob = await new Promise(resolve => {
+      try {
+        canvas.toBlob(resolve, "image/webp", 0.82);
+      } catch(e){
+        resolve(null);
+      }
+    });
+
+    revokeDrawingUrl(state.drawings[i]);
+    state.drawings[i] = blob
+      ? URL.createObjectURL(blob)
+      : canvas.toDataURL("image/png");
+
     state.drawStarted = false;
     state.passIndex++;
     if(state.passIndex >= state.players.length){
@@ -890,8 +1018,8 @@ function renderPassDraw(){
 function renderGallery(){
   const items = state.players.map((name,i)=>`
     <div class="gallery-item" data-zoom="${i}" style="cursor:pointer;">
-      <img src="${state.drawings[i]}" alt="${escapeHtml(name)}の絵">
-      <div class="pname">${escapeHtml(name)}</div>
+      <img src="${state.drawings[i]}" alt="${escapeHtml(name)}の絵" loading="lazy" decoding="async" draggable="false">
+      <div class="pname"><span class="pdot" style="background:${playerColor(i)}">${i+1}</span>${escapeHtml(name)}</div>
     </div>
   `).join("");
   card(`
@@ -905,7 +1033,7 @@ function renderGallery(){
   document.querySelectorAll("[data-zoom]").forEach(el=>{
     el.addEventListener("click", ()=>{
       const i = +el.dataset.zoom;
-      showZoom(state.drawings[i], state.players[i]);
+      showZoom(state.drawings[i], state.players[i], playerColor(i));
     });
   });
   document.getElementById("to-vote").addEventListener("click", ()=>{
@@ -913,13 +1041,15 @@ function renderGallery(){
   });
 }
 
-function showZoom(src, name){
+function showZoom(src, name, color){
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center; z-index:999; padding:24px;";
   overlay.innerHTML = `
     <div style="max-width:420px; width:100%; text-align:center;">
-      <img src="${src}" style="width:100%; border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
-      <div style="color:var(--overlay-text); font-family:'Yomogi','Hiragino Sans',sans-serif,cursive; font-size:1.4rem; margin-top:12px;">${escapeHtml(name)}</div>
+      <img src="${src}" decoding="async" draggable="false" style="width:100%; border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+      <div style="color:var(--overlay-text); font-family:'Yomogi','Hiragino Sans',sans-serif,cursive; font-size:1.4rem; margin-top:12px; display:inline-flex; align-items:center; gap:10px; justify-content:center;">
+        <span class="pdot" style="background:${color}"> </span>${escapeHtml(name)}
+      </div>
       <div style="color:var(--overlay-text-dim); font-size:0.85rem; margin-top:4px;">タップして閉じる</div>
     </div>
   `;
@@ -936,7 +1066,7 @@ function renderVote(){
   const options = state.players.map((name,i)=>{
     if(i===voter) return "";
     return `<div class="vote-option ${selected===i?'selected':''}" data-target="${i}">
-      <span class="vname">${escapeHtml(name)}</span>
+      <span class="vname"><span class="pdot" style="background:${playerColor(i)}">${i+1}</span>${escapeHtml(name)}</span>
       <span>${selected===i?"✓":""}</span>
     </div>`;
   }).join("");
@@ -947,6 +1077,7 @@ function renderVote(){
     <div class="pass-screen" style="padding-top:0;">
       <div>端末をこの人に渡してください</div>
       <div class="name">${escapeHtml(voterName)}</div>
+      <div class="player-color-row">${colorBadge(voter, true)}</div>
     </div>
     <h2 style="font-size:1.1rem;">ウルフだと思う人を選んでください</h2>
     <div class="vote-list">${options}</div>
@@ -993,12 +1124,12 @@ function renderResult(){
   const maxTally = Math.max(1, ...tally);
   const rows = state.players.map((name,i)=>`
     <div class="result-row" style="flex-direction:column; align-items:stretch; gap:6px;">
-      <div style="display:flex; justify-content:space-between;">
-        <span>${escapeHtml(name)} <span style="color:var(--ink-dim); font-size:0.85rem;">(${tally[i]}票)</span></span>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="result-name" style="display:inline-flex; align-items:center;"><span class="pdot" style="background:${playerColor(i)}">${i+1}</span>${escapeHtml(name)} <span style="color:var(--ink-dim); font-size:0.85rem; margin-left:6px;">(${tally[i]}票)</span></span>
         <span class="${state.roles[i]==='wolf'?'tag-wolf':'tag-citizen'}">${state.roles[i]==='wolf'?'ウルフ':'市民'}</span>
       </div>
       <div class="timer-bar-track">
-        <div class="vote-bar-fill" data-final="${(tally[i]/maxTally)*100}" style="height:100%; width:0%; border-radius:99px; background:${state.roles[i]==='wolf'?'var(--red)':'var(--amber)'}; transition:width 0.9s cubic-bezier(.2,.8,.3,1);"></div>
+        <div class="vote-bar-fill" data-final="${(tally[i]/maxTally)*100}" style="height:100%; width:0%; border-radius:99px; background:${playerColor(i)}; transition:width 0.9s cubic-bezier(.2,.8,.3,1);"></div>
       </div>
     </div>
   `).join("");
@@ -1023,6 +1154,7 @@ function renderResult(){
     setupGame();
   });
   document.getElementById("restart").addEventListener("click", ()=>{
+    clearDrawingCache();
     state.screen = "setup";
     state.votes = {};
     render();
@@ -1161,6 +1293,7 @@ function escapeHtml(str){
 
 render();
 </script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 </body>
 </html>
