@@ -6170,8 +6170,9 @@ function renderPassDraw(){
     e.preventDefault();
     const [rawX,rawY]=pos(e);
     // 強力な手ブレ補正: 生の指の座標を指数移動平均で滑らかに追従させ、細かな震えを吸収する。
-    // タッチ操作は特に揺れやすいので、係数を小さめにして補正を強くかける。
-    const SMOOTHING = e.pointerType === "touch" ? 0.16 : 0.45;
+    // 補正レベル7/10相当(1=ほぼ補正なし・追従が速い 〜 10=最大限に滑らか・追従が遅い)。
+    // レベルが上がるほどSMOOTHINGの値を小さくして、生座標への追従を遅くする=震えが線に出にくくなる。
+    const SMOOTHING = e.pointerType === "touch" ? 0.10 : 0.30;
     smoothX += (rawX - smoothX) * SMOOTHING;
     smoothY += (rawY - smoothY) * SMOOTHING;
     const [x,y] = erasing ? [rawX,rawY] : [smoothX,smoothY]; // 消しゴムは即応性を優先して生座標を使う
@@ -6187,9 +6188,10 @@ function renderPassDraw(){
     const [bcx,bcy]=cursorScreenPos(e); updateBrushCursor(bcx,bcy,true);
     points.push([x,y]);
     moved = true;
-    // 入り(フェードイン): 描き始めの数点は徐々に太くして、プロが描いたような線の入りを再現する
-    const fadeIn = erasing ? 1 : Math.min(1, points.length/12);
-    const w = erasing ? currentSize*3 : currentSize*speedFactor*fadeIn;
+    // 入り(フェードイン)【強制入り抜き: 常時ON・最大】: 描き始めをほぼ0の太さから始め、
+    // 長い距離をかけて徐々に本来の太さまで立ち上げることで、確実に鋭い入りを作る
+    const fadeIn = erasing ? 1 : Math.min(1, Math.pow(points.length/18, 1.4));
+    const w = erasing ? currentSize*3 : Math.max(0.4, currentSize*speedFactor*fadeIn);
     canvasCtx.strokeStyle = strokeColor;
     canvasCtx.lineWidth = w;
     if(points.length < 3){
@@ -6232,16 +6234,18 @@ function renderPassDraw(){
       const dx = cx-px, dy = cy-py;
       const len = Math.hypot(dx,dy);
       if(len > 0.001){
+        // 強制入り抜き【常時ON・最大(長さ100%相当)】: サイズに対する伸び幅と分割数を最大化し、
+        // どんな線でも確実にシュッと鋭い払いになるようにする
         const ux = dx/len, uy = dy/len;
-        const totalExt = Math.min(16, currentSize*1.8);
-        const steps = 7;
+        const totalExt = Math.min(28, currentSize*3.2);
+        const steps = 10;
         let fromX = cx, fromY = cy;
         canvasCtx.strokeStyle = strokeColor;
         for(let s=1; s<=steps; s++){
           const t = s/steps;
           const toX = cx + ux*totalExt*t;
           const toY = cy + uy*totalExt*t;
-          canvasCtx.lineWidth = Math.max(0.6, currentSize*(1-t*0.95));
+          canvasCtx.lineWidth = Math.max(0.3, currentSize*(1-Math.pow(t,0.8)));
           canvasCtx.beginPath();
           canvasCtx.moveTo(fromX,fromY);
           canvasCtx.lineTo(toX,toY);
