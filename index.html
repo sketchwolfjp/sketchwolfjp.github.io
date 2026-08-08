@@ -5861,9 +5861,14 @@ function renderPassDraw(){
     <div class="tools">
       ${PEN_COLORS.map(c=>`<div class="swatch ${c===currentColor?'active':''}" style="background:${c}" data-color="${c}"></div>`).join("")}
       <label class="color-picker-wrap" title="色を選ぶ"><span>色</span><input type="color" id="color-picker" value="${currentColor}"></label>
+      <button class="tool-btn" id="toggle-eraser">🖊 消しゴム</button>
+      <button class="tool-btn" id="undo-btn">↺ 戻す</button>
       <button class="tool-btn" id="clear-canvas">全部消す</button>
     </div>
-    <div class="tap-hint" id="pen-size-hint">太さ変更: PCは右クリック押しながら左右にドラッグ / スマホは素早く2回タップ後そのまま左右にドラッグ。長押しで一時的に消しゴム。2本指でつまむと拡大縮小＆移動できます</div>
+    <div class="tools" style="margin-top:-4px;">
+      <button class="tool-btn" id="toggle-offset">指ずらし: オフ</button>
+    </div>
+    <div class="tap-hint" id="pen-size-hint">太さ変更: 右クリック(PC)/素早く2回タップ後ドラッグ(スマホ)。長押しで一時消しゴム。2本指でつまむと拡大縮小＆移動。2本指タップで1つ戻す、3本指タップでやり直し</div>
     <button class="primary" id="done-draw">描き終わった</button>
   `);
 
@@ -5916,9 +5921,41 @@ function renderPassDraw(){
   }
   applyTransform();
 
-  // 2本指ピンチでのズーム＆パン
+  // ---- 元に戻す／やり直し（取り消し履歴）----
+  const historyStack = [];
+  const redoStack = [];
+  const HISTORY_LIMIT = 20;
+  function pushHistory(){
+    try{
+      historyStack.push(canvasCtx.getImageData(0,0,canvas.width,canvas.height));
+      if(historyStack.length > HISTORY_LIMIT) historyStack.shift();
+      redoStack.length = 0;
+    }catch(e){ /* ignore */ }
+  }
+  function undo(){
+    if(historyStack.length === 0) return;
+    try{
+      redoStack.push(canvasCtx.getImageData(0,0,canvas.width,canvas.height));
+      canvasCtx.putImageData(historyStack.pop(), 0, 0);
+    }catch(e){}
+  }
+  function redo(){
+    if(redoStack.length === 0) return;
+    try{
+      historyStack.push(canvasCtx.getImageData(0,0,canvas.width,canvas.height));
+      canvasCtx.putImageData(redoStack.pop(), 0, 0);
+    }catch(e){}
+  }
+
+  // 2本指ピンチでのズーム＆パン／2本指タップで戻す／3本指タップでやり直し
   const touchPts = new Map();
+  const touchStartPts = new Map();
   let pinch = null;
+  let gestureFingers = 0;
+  let gestureStartTime = 0;
+  let gestureBroken = false;
+  const TAP_MOVE_TOLERANCE = 18;
+  const TAP_MAX_DURATION = 400;
   function touchDist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
   function touchMid(a,b){ return [(a.x+b.x)/2, (a.y+b.y)/2]; }
   function abortDrawingForPinch(){
@@ -5935,15 +5972,28 @@ function renderPassDraw(){
   canvasWrap.addEventListener("pointerdown", e=>{
     if(e.pointerType !== "touch") return;
     touchPts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    touchStartPts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(touchPts.size === 1){
+      gestureStartTime = Date.now();
+      gestureBroken = false;
+      gestureFingers = 1;
+    } else {
+      gestureFingers = Math.max(gestureFingers, touchPts.size);
+    }
     if(touchPts.size === 2){
       abortDrawingForPinch();
       const [a,b] = [...touchPts.values()];
       pinch = { startDist: touchDist(a,b), startMid: touchMid(a,b), startScale: zoomScale, startPanX: panX, startPanY: panY };
+    } else if(touchPts.size >= 3){
+      abortDrawingForPinch();
+      pinch = null; // 3本指以降はズームせず、指を離した時にタップ判定(やり直し)だけ見る
     }
   });
   canvasWrap.addEventListener("pointermove", e=>{
     if(e.pointerType !== "touch" || !touchPts.has(e.pointerId)) return;
     touchPts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    const st = touchStartPts.get(e.pointerId);
+    if(st && Math.hypot(e.clientX-st.x, e.clientY-st.y) > TAP_MOVE_TOLERANCE) gestureBroken = true;
     if(pinch && touchPts.size === 2){
       e.preventDefault();
       const [a,b] = [...touchPts.values()];
@@ -5964,7 +6014,16 @@ function renderPassDraw(){
   function releaseTouchPoint(e){
     if(e.pointerType !== "touch") return;
     touchPts.delete(e.pointerId);
+    touchStartPts.delete(e.pointerId);
     if(touchPts.size < 2) pinch = null;
+    if(touchPts.size === 0){
+      const duration = Date.now() - gestureStartTime;
+      if(!gestureBroken && duration < TAP_MAX_DURATION){
+        if(gestureFingers === 2) undo();
+        else if(gestureFingers >= 3) redo();
+      }
+      gestureFingers = 0;
+    }
   }
   canvasWrap.addEventListener("pointerup", releaseTouchPoint);
   canvasWrap.addEventListener("pointercancel", releaseTouchPoint);
@@ -5990,6 +6049,9 @@ function renderPassDraw(){
   let strokeStartPos = [0,0];
   let longPressTimer = null;
   let erasing = false;
+  let eraserMode = false; // ワンタップで固定するペン/消しゴム切り替え(長押し一時消しゴムとは別)
+  let fingerOffsetEnabled = false; // 指の少し上に描画位置をずらして、指で線が隠れるのを防ぐ
+  const FINGER_OFFSET_PX = 46;
   let lastMoveTime = 0;
   let moved = false; // pointerdown後に一度でも動いたか(動いていなければ最後にドットを描く)
 
@@ -6011,7 +6073,19 @@ function renderPassDraw(){
     // ズーム中はcanvasの表示サイズ(r.width)がcssWより大きくなるので、その比率で逆算して
     // 実際のペン先とタッチ位置がずれないようにする。
     const displayScale = r.width / cssW || 1;
-    return [(e.clientX-r.left)/displayScale, (e.clientY-r.top)/displayScale];
+    let cx = e.clientX, cy = e.clientY;
+    if(fingerOffsetEnabled && e.pointerType === "touch" && !erasing){
+      cy -= FINGER_OFFSET_PX; // 画面上での見た目のズレ量は一定にしたいので、キャンバス座標に直す前に引く
+    }
+    return [(cx-r.left)/displayScale, (cy-r.top)/displayScale];
+  }
+  function cursorScreenPos(e){
+    // ブラシカーソル(丸)の表示位置。指ずらしONの時は実際の描画位置と同じ場所に表示する。
+    let x = e.clientX, y = e.clientY;
+    if(fingerOffsetEnabled && e.pointerType === "touch" && !erasing){
+      y -= FINGER_OFFSET_PX;
+    }
+    return [x,y];
   }
   function drawDot(x,y,size,color){
     // 描き始めの最初の点が抜けて見える現象を防ぐため、開始位置に丸を1つ描いておく
@@ -6058,15 +6132,16 @@ function renderPassDraw(){
     activePointerId = e.pointerId;
     canvas.setPointerCapture(e.pointerId);
     drawing=true;
-    erasing=false;
+    pushHistory();
+    erasing = eraserMode;
     moved=false;
-    strokeColor = currentColor;
+    strokeColor = eraserMode ? bgColor : currentColor;
     lastMoveTime = performance.now ? performance.now() : now;
     [lastX,lastY]=pos(e);
     smoothX = lastX; smoothY = lastY;
     strokeStartPos = [lastX,lastY];
     strokeStartTime = now;
-    updateBrushCursor(e.clientX,e.clientY,true);
+    const [bcx,bcy]=cursorScreenPos(e); updateBrushCursor(bcx,bcy,true);
     points=[[lastX,lastY]];
     canvasCtx.strokeStyle = strokeColor;
     canvasCtx.lineWidth = currentSize;
@@ -6109,10 +6184,12 @@ function renderPassDraw(){
     const speedFactor = Math.max(0.75, Math.min(1.25, 1.15 - speed*0.9));
     lastMoveTime = now;
 
-    updateBrushCursor(e.clientX,e.clientY,true);
+    const [bcx,bcy]=cursorScreenPos(e); updateBrushCursor(bcx,bcy,true);
     points.push([x,y]);
     moved = true;
-    const w = erasing ? currentSize*3 : currentSize*speedFactor;
+    // 入り(フェードイン): 描き始めの数点は徐々に太くして、プロが描いたような線の入りを再現する
+    const fadeIn = erasing ? 1 : Math.min(1, points.length/7);
+    const w = erasing ? currentSize*3 : currentSize*speedFactor*fadeIn;
     canvasCtx.strokeStyle = strokeColor;
     canvasCtx.lineWidth = w;
     if(points.length < 3){
@@ -6146,8 +6223,33 @@ function renderPassDraw(){
       canvasCtx.strokeStyle = strokeColor;
       drawDot(lastX,lastY, erasing ? currentSize*3 : currentSize, strokeColor);
     }
-    // ストローク終端が短く切れて見えるのを防ぐため、最後の方向へ少しだけ延長して描く
-    if(drawing && points.length >= 2){
+    // ストローク終端(抜き): 最後の方向へ、線幅を徐々に細くしながら数ステップに分けて延長し、
+    // ペンで描いたような自然な「抜き」の先端を再現する
+    if(drawing && points.length >= 2 && !erasing){
+      const n = points.length;
+      const [px,py] = points[n-2];
+      const [cx,cy] = points[n-1];
+      const dx = cx-px, dy = cy-py;
+      const len = Math.hypot(dx,dy);
+      if(len > 0.001){
+        const ux = dx/len, uy = dy/len;
+        const totalExt = Math.min(10, currentSize*1.1);
+        const steps = 4;
+        let fromX = cx, fromY = cy;
+        canvasCtx.strokeStyle = strokeColor;
+        for(let s=1; s<=steps; s++){
+          const t = s/steps;
+          const toX = cx + ux*totalExt*t;
+          const toY = cy + uy*totalExt*t;
+          canvasCtx.lineWidth = Math.max(1, currentSize*(1-t*0.85));
+          canvasCtx.beginPath();
+          canvasCtx.moveTo(fromX,fromY);
+          canvasCtx.lineTo(toX,toY);
+          canvasCtx.stroke();
+          fromX = toX; fromY = toY;
+        }
+      }
+    } else if(drawing && points.length >= 2 && erasing){
       const n = points.length;
       const [px,py] = points[n-2];
       const [cx,cy] = points[n-1];
@@ -6158,7 +6260,7 @@ function renderPassDraw(){
         const ex = cx + (dx/len)*ext;
         const ey = cy + (dy/len)*ext;
         canvasCtx.strokeStyle = strokeColor;
-        canvasCtx.lineWidth = erasing ? currentSize*3 : currentSize;
+        canvasCtx.lineWidth = currentSize*3;
         canvasCtx.beginPath();
         canvasCtx.moveTo(cx,cy);
         canvasCtx.lineTo(ex,ey);
@@ -6198,8 +6300,28 @@ function renderPassDraw(){
   });
 
   document.getElementById("clear-canvas").addEventListener("click", ()=>{
+    pushHistory();
     canvasCtx.fillStyle = bgColor;
     canvasCtx.fillRect(0,0,cssW,cssH);
+  });
+
+  // ワンタップでペン⇔消しゴムを切り替え(クイックチェンジャー)
+  const eraserBtn = document.getElementById("toggle-eraser");
+  eraserBtn.addEventListener("click", ()=>{
+    eraserMode = !eraserMode;
+    eraserBtn.textContent = eraserMode ? "🖊 ペンに戻す" : "🖊 消しゴム";
+    eraserBtn.classList.toggle("active", eraserMode);
+  });
+
+  // 戻す(取り消し)ボタン。2本指タップでも同じ操作ができる
+  document.getElementById("undo-btn").addEventListener("click", ()=> undo());
+
+  // 指ずらし(先端補正): 描画位置を指の少し上にずらして、指で線が隠れるのを防ぐ
+  const offsetBtn = document.getElementById("toggle-offset");
+  offsetBtn.addEventListener("click", ()=>{
+    fingerOffsetEnabled = !fingerOffsetEnabled;
+    offsetBtn.textContent = fingerOffsetEnabled ? "指ずらし: オン" : "指ずらし: オフ";
+    offsetBtn.classList.toggle("active", fingerOffsetEnabled);
   });
 
   // ズームボタン（ピンチが苦手な人やマウス操作向けの補助UI）
