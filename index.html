@@ -287,6 +287,7 @@
     background:var(--canvas-bg);
     border-radius:12px;
     width:100%;
+    aspect-ratio: 25 / 18;
     max-height:60vh;
     max-height:60dvh;
     touch-action:none;
@@ -455,17 +456,108 @@ window.addEventListener("unhandledrejection", (e)=>{
   } catch(_){}
 });
 
-/* ---------- お題ペア ---------- */
+/* ---------- お題ペア（100組版） ---------- */
 const TOPIC_PAIRS = [
-  ["ネコ","ライオン"],["犬","オオカミ"],["海","プール"],["温泉","銭湯"],
-  ["映画館","劇場"],["コンビニ","スーパー"],["山","丘"],["台風","地震"],
-  ["図書館","本屋"],["消防士","警察官"],
-  ["マウス","ハムスター"],["コーヒー","ココア"],["ピザ","お好み焼き"],
-  ["カラス","ペンギン"],["リュック","スーツケース"],["ボールペン","シャープペン"],
-  ["UFO","ロケット"],["ラーメン","そば"],["カレー","シチュー"],["新幹線","飛行機"],
-  ["食パン","フランスパン"],["ノート","手帳"],["扇風機","エアコン"],
-  ["軍手","手袋"],["ソファ","ベンチ"],["水筒","マグカップ"],
-  ["ホチキス","クリップ"],["傘","日傘"],["リモコン","スイッチ"],["財布","カードケース"]
+  ["ネコ","ライオン"],
+  ["犬","オオカミ"],
+  ["海","プール"],
+  ["温泉","銭湯"],
+  ["映画館","劇場"],
+  ["コンビニ","スーパー"],
+  ["山","丘"],
+  ["台風","地震"],
+  ["図書館","本屋"],
+  ["消防士","警察官"],
+  ["マウス","ハムスター"],
+  ["コーヒー","ココア"],
+  ["ピザ","お好み焼き"],
+  ["カラス","ペンギン"],
+  ["リュック","スーツケース"],
+  ["ボールペン","シャープペン"],
+  ["UFO","ロケット"],
+  ["ラーメン","そば"],
+  ["カレー","シチュー"],
+  ["新幹線","飛行機"],
+  ["食パン","フランスパン"],
+  ["ノート","手帳"],
+  ["扇風機","エアコン"],
+  ["軍手","手袋"],
+  ["ソファ","ベンチ"],
+  ["水筒","マグカップ"],
+  ["ホチキス","クリップ"],
+  ["傘","日傘"],
+  ["リモコン","スイッチ"],
+  ["財布","カードケース"],
+  ["りんご","なし"],
+  ["バナナ","とうもろこし"],
+  ["ハンバーガー","サンドイッチ"],
+  ["アイス","プリン"],
+  ["おにぎり","おもち"],
+  ["ドーナツ","ベーグル"],
+  ["クッキー","せんべい"],
+  ["みかん","オレンジ"],
+  ["えびふらい","バナナ"],
+  ["たこ焼き","肉だんご"],
+  ["うさぎ","ねずみ"],
+  ["魚","クジラ"],
+  ["ペンギン","アヒル"],
+  ["ライオン","トラ"],
+  ["カメ","カエル"],
+  ["ぞう","ねずみ"],
+  ["さる","ゴリラ"],
+  ["へび","みみず"],
+  ["きりん","うま"],
+  ["ぶた","いのしし"],
+  ["太陽","月"],
+  ["星","雲"],
+  ["雨","雪"],
+  ["川","滝"],
+  ["虹","すべり台"],
+  ["木","花"],
+  ["石","岩"],
+  ["砂浜","砂場"],
+  ["家","お城"],
+  ["学校","病院"],
+  ["公園","庭"],
+  ["駅","空港"],
+  ["神社","お寺"],
+  ["牧場","動物園"],
+  ["ビル","塔"],
+  ["テント","家"],
+  ["風車","観覧車"],
+  ["橋","トンネル"],
+  ["電車","バス"],
+  ["飛行機","ロケット"],
+  ["自転車","バイク"],
+  ["車","タクシー"],
+  ["船","ボート"],
+  ["救急車","消防車"],
+  ["ショベルカー","ブルドーザー"],
+  ["三輪車","自転車"],
+  ["帽子","ヘルメット"],
+  ["眼鏡","サングラス"],
+  ["鉛筆","クレヨン"],
+  ["時計","スマホ"],
+  ["ギター","ピアノ"],
+  ["はさみ","ペンチ"],
+  ["ほうき","モップ"],
+  ["カメラ","双眼鏡"],
+  ["歯ブラシ","くし"],
+  ["くつ","スリッパ"],
+  ["ベッド","ふとん"],
+  ["シャツ","セーター"],
+  ["ズボン","スカート"],
+  ["マフラー","ネクタイ"],
+  ["てるてる坊主","おばけ"],
+  ["ロウソク","電球"],
+  ["風船","地球"],
+  ["プレゼント","宝箱"],
+  ["旗","うちわ"],
+  ["サッカーボール","野球ボール"],
+  ["バット","ラケット"],
+  ["ゴール","的"],
+  ["ロボット","宇宙人"],
+  ["おばけ","雪だるま"]
 ];
 
 /* ---------- 状態 ---------- */
@@ -754,7 +846,7 @@ let canvasCtx = null;
 let drawing = false;
 let lastX=0,lastY=0;
 let currentColor = "#3d3929";
-let currentSize = 5;
+let currentSize = 7;
 const PEN_COLORS = ["#3d3929","#c1443c","#d97757","#3b6ea5","#4d8c68"];
 
 /* ---------- プレイヤー固定色（番号→色／色名） ----------
@@ -790,7 +882,7 @@ function renderPassDraw(){
   const i = state.order[state.passIndex];
   const name = state.players[i];
   const started = state.drawStarted;
-  if(!started) currentSize = 5;
+  if(!started) currentSize = 7;
 
   if(!started){
     card(`
@@ -822,32 +914,53 @@ function renderPassDraw(){
       <div class="player-color-row" style="margin-bottom:8px;">${colorBadge(i, true)}</div>
       ${circleTimerHtml(state.drawSeconds, true)}
     </div>
-    <canvas id="canvas" width="500" height="360"></canvas>
+    <canvas id="canvas"></canvas>
     <div class="brush-cursor" id="brush-cursor" aria-hidden="true"></div>
     <div class="tools">
       ${PEN_COLORS.map(c=>`<div class="swatch ${c===currentColor?'active':''}" style="background:${c}" data-color="${c}"></div>`).join("")}
       <label class="color-picker-wrap" title="色を選ぶ"><span>色</span><input type="color" id="color-picker" value="${currentColor}"></label>
       <button class="tool-btn" id="clear-canvas">全部消す</button>
     </div>
-    <div class="tap-hint" id="pen-size-hint">太さ変更: PCは右クリック押しながら左右にドラッグ / スマホは素早く2回タップ後そのまま左右にドラッグ</div>
+    <div class="tap-hint" id="pen-size-hint">太さ変更: PCは右クリック押しながら左右にドラッグ / スマホは素早く2回タップ後そのまま左右にドラッグ。長押しで一時的に消しゴム</div>
     <button class="primary" id="done-draw">描き終わった</button>
   `);
 
   const canvas = document.getElementById("canvas");
   canvasCtx = canvas.getContext("2d");
   const bgColor = getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim() || "#f2efe9";
+
+  // ---- デバイスの解像度(devicePixelRatio)に合わせてcanvasの実解像度を設定 ----
+  // これをしないと、iPhoneなど高解像度端末で線がぼやけて見える
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const rect = canvas.getBoundingClientRect();
+  const cssW = Math.max(1, Math.round(rect.width));
+  const cssH = Math.max(1, Math.round(rect.height));
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  canvasCtx.scale(dpr, dpr);
+
   canvasCtx.fillStyle = bgColor;
-  canvasCtx.fillRect(0,0,canvas.width,canvas.height);
+  canvasCtx.fillRect(0,0,cssW,cssH);
   canvasCtx.lineJoin = "round";
   canvasCtx.lineCap = "round";
   if("imageSmoothingEnabled" in canvasCtx) canvasCtx.imageSmoothingEnabled = true;
   canvas.addEventListener("contextmenu", e=> e.preventDefault());
 
   const MIN_SIZE = 2, MAX_SIZE = 24;
+  const LONG_PRESS_MS = 450;
+  const LONG_PRESS_MOVE_TOLERANCE = 6; // CSSピクセル。これ以上動いたら長押し消しゴムは発動しない
   let resizingPen = false;
   let resizeStartX = 0;
   let resizeStartSize = currentSize;
   let lastTouchEnd = { time:0, x:0, y:0 };
+  let activePointerId = null; // パームリジェクション:描画開始した指(ポインター)のみ受け付ける
+  let strokeColor = currentColor;
+  let strokeStartTime = 0;
+  let strokeStartPos = [0,0];
+  let longPressTimer = null;
+  let erasing = false;
+  let lastMoveTime = 0;
+  let moved = false; // pointerdown後に一度でも動いたか(動いていなければ最後にドットを描く)
 
   let points = [];
   const brushCursor = document.getElementById("brush-cursor");
@@ -857,18 +970,21 @@ function renderPassDraw(){
     brushCursor.style.width = `${diameter}px`; brushCursor.style.height = `${diameter}px`;
     brushCursor.style.left = `${x}px`; brushCursor.style.top = `${y}px`;
     brushCursor.style.display = visible ? "block" : "none";
+    brushCursor.style.borderColor = erasing ? "var(--red)" : "#fff";
   }
   function hideBrushCursor(){ if(brushCursor) brushCursor.style.display="none"; }
 
   function pos(e){
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
-    const cx = (e.touches? e.touches[0].clientX : e.clientX);
-    const cy = (e.touches? e.touches[0].clientY : e.clientY);
-    return [(cx-rect.left)*scaleX, (cy-rect.top)*scaleY];
+    const r = canvas.getBoundingClientRect();
+    // ctx.scale(dpr,dpr) 済みなので、CSSピクセル座標をそのまま描画座標として使う
+    return [e.clientX-r.left, e.clientY-r.top];
   }
-  function clientX(e){
-    return e.touches ? e.touches[0].clientX : e.clientX;
+  function drawDot(x,y,size,color){
+    // 描き始めの最初の点が抜けて見える現象を防ぐため、開始位置に丸を1つ描いておく
+    canvasCtx.beginPath();
+    canvasCtx.fillStyle = color;
+    canvasCtx.arc(x, y, size/2, 0, Math.PI*2);
+    canvasCtx.fill();
   }
   function startResize(clientXPos){
     resizingPen = true;
@@ -880,30 +996,84 @@ function renderPassDraw(){
     currentSize = Math.round(Math.min(MAX_SIZE, Math.max(MIN_SIZE, resizeStartSize + delta/6)));
     updateBrushCursor(lastX,lastY,true);
   }
+  function triggerErase(){
+    erasing = true;
+    strokeColor = bgColor;
+    currentSize = Math.min(MAX_SIZE, currentSize) * 1; // サイズはそのまま、色だけ背景色に
+    updateBrushCursor(lastX + canvas.getBoundingClientRect().left, lastY + canvas.getBoundingClientRect().top, true);
+  }
   function start(e){
+    // パームリジェクション: すでに描画中/リサイズ中のポインターがあれば、他の指(手のひら等)は無視する
+    if(activePointerId !== null && e.pointerId !== activePointerId) return;
     e.preventDefault();
     if(e.button === 2){
-      startResize(clientX(e));
+      activePointerId = e.pointerId;
+      startResize(e.clientX);
       return;
     }
+    const now = Date.now();
+    if(e.pointerType === "touch"){
+      const isDoubleTap = (now - lastTouchEnd.time < 300) &&
+        Math.abs(e.clientX - lastTouchEnd.x) < 40 && Math.abs(e.clientY - lastTouchEnd.y) < 40;
+      if(isDoubleTap){
+        activePointerId = e.pointerId;
+        startResize(e.clientX);
+        return;
+      }
+    }
+    activePointerId = e.pointerId;
+    canvas.setPointerCapture(e.pointerId);
     drawing=true;
+    erasing=false;
+    moved=false;
+    strokeColor = currentColor;
+    lastMoveTime = performance.now ? performance.now() : now;
     [lastX,lastY]=pos(e);
+    strokeStartPos = [lastX,lastY];
+    strokeStartTime = now;
     updateBrushCursor(e.clientX,e.clientY,true);
     points=[[lastX,lastY]];
+    canvasCtx.strokeStyle = strokeColor;
+    canvasCtx.lineWidth = currentSize;
+    // ここではまだ何も描かない(タップだけなら pointerup 時にドットを描く。動けば move() で線を描く)
+
+    // 長押し(指を動かさず一定時間そのまま)で一時的に消しゴムへ切り替え
+    if(e.pointerType === "touch"){
+      clearTimeout(longPressTimer);
+      longPressTimer = setTimeout(()=>{
+        if(!drawing) return;
+        const dist = Math.hypot(lastX-strokeStartPos[0], lastY-strokeStartPos[1]);
+        if(dist < LONG_PRESS_MOVE_TOLERANCE){
+          triggerErase();
+        }
+      }, LONG_PRESS_MS);
+    }
   }
   function move(e){
+    if(activePointerId !== null && e.pointerId !== activePointerId) return;
     if(resizingPen){
       e.preventDefault();
-      updateResize(clientX(e));
+      updateResize(e.clientX);
       return;
     }
     if(!drawing) return;
     e.preventDefault();
     const [x,y]=pos(e);
+    const now = performance.now ? performance.now() : Date.now();
+
+    // 描画速度に応じて線の太さをわずかに変える(±25%程度): 速いほど細く、遅いほど太く
+    const dt = Math.max(1, now - (lastMoveTime || now));
+    const dist = Math.hypot(x-lastX, y-lastY);
+    const speed = dist / dt; // px/ms
+    const speedFactor = Math.max(0.75, Math.min(1.25, 1.15 - speed*0.9));
+    lastMoveTime = now;
+
     updateBrushCursor(e.clientX,e.clientY,true);
     points.push([x,y]);
-    canvasCtx.strokeStyle = currentColor;
-    canvasCtx.lineWidth = currentSize;
+    moved = true;
+    const w = erasing ? currentSize*3 : currentSize*speedFactor;
+    canvasCtx.strokeStyle = strokeColor;
+    canvasCtx.lineWidth = w;
     if(points.length < 3){
       canvasCtx.beginPath();
       canvasCtx.moveTo(lastX,lastY);
@@ -921,41 +1091,53 @@ function renderPassDraw(){
       canvasCtx.stroke();
     }
     [lastX,lastY]=[x,y];
-  }
-  function end(){ drawing=false; points=[]; resizingPen=false; }
 
-  function touchStart(e){
-    const t = e.touches[0];
-    const now = Date.now();
-    const isDoubleTap = (now - lastTouchEnd.time < 300) &&
-      Math.abs(t.clientX - lastTouchEnd.x) < 40 && Math.abs(t.clientY - lastTouchEnd.y) < 40;
-    if(isDoubleTap){
-      e.preventDefault();
-      startResize(t.clientX);
-      return;
-    }
-    start(e);
+    // 動いたら長押し消しゴムの発動条件から外れる(タイマー内で距離チェックしているのでここでは何もしない)
   }
-  function touchEndHandler(e){
-    if(resizingPen){
-      end();
-      lastTouchEnd = { time:0, x:0, y:0 };
-      return;
+  function end(e){
+    if(e && activePointerId !== null && e.pointerId !== activePointerId) return;
+    clearTimeout(longPressTimer);
+    if(e && e.pointerType === "touch"){
+      lastTouchEnd = { time: Date.now(), x: e.clientX, y: e.clientY };
     }
-    const t = e.changedTouches[0];
-    lastTouchEnd = { time: Date.now(), x: t.clientX, y: t.clientY };
+    // タップ(一度も動かなかった)の場合だけ、ここでドットを描く
+    if(drawing && !moved){
+      canvasCtx.strokeStyle = strokeColor;
+      drawDot(lastX,lastY, erasing ? currentSize*3 : currentSize, strokeColor);
+    }
+    // ストローク終端が短く切れて見えるのを防ぐため、最後の方向へ少しだけ延長して描く
+    if(drawing && points.length >= 2){
+      const n = points.length;
+      const [px,py] = points[n-2];
+      const [cx,cy] = points[n-1];
+      const dx = cx-px, dy = cy-py;
+      const len = Math.hypot(dx,dy);
+      if(len > 0.001){
+        const ext = Math.min(4, currentSize*0.4);
+        const ex = cx + (dx/len)*ext;
+        const ey = cy + (dy/len)*ext;
+        canvasCtx.strokeStyle = strokeColor;
+        canvasCtx.lineWidth = erasing ? currentSize*3 : currentSize;
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(cx,cy);
+        canvasCtx.lineTo(ex,ey);
+        canvasCtx.stroke();
+      }
+    }
+    drawing=false; points=[]; resizingPen=false; activePointerId = null; erasing=false;
     hideBrushCursor();
-    end();
   }
 
-  canvas.addEventListener("mousedown", start);
-  canvas.addEventListener("mousemove", move);
-  canvas.addEventListener("mouseenter", e=>updateBrushCursor(e.clientX,e.clientY,true));
-  canvas.addEventListener("mouseup", end);
-  canvas.addEventListener("mouseleave", ()=>{ end(); hideBrushCursor(); });
-  canvas.addEventListener("touchstart", touchStart, {passive:false});
-  canvas.addEventListener("touchmove", move, {passive:false});
-  canvas.addEventListener("touchend", touchEndHandler);
+  canvas.addEventListener("pointerdown", start);
+  canvas.addEventListener("pointermove", move);
+  canvas.addEventListener("pointerenter", e=>{
+    if(e.pointerType !== "touch") updateBrushCursor(e.clientX,e.clientY,true);
+  });
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+  canvas.addEventListener("pointerleave", e=>{
+    if(e.pointerType !== "touch") hideBrushCursor();
+  });
 
   function refreshToolButtons(){
     document.querySelectorAll(".swatch").forEach(sw=>{
@@ -976,7 +1158,7 @@ function renderPassDraw(){
 
   document.getElementById("clear-canvas").addEventListener("click", ()=>{
     canvasCtx.fillStyle = bgColor;
-    canvasCtx.fillRect(0,0,canvas.width,canvas.height);
+    canvasCtx.fillRect(0,0,cssW,cssH);
   });
 
   let finished = false;
@@ -1279,7 +1461,17 @@ function filledCount(players){
   return players.map(p=>p.trim()).filter(n=>n.length>0).length;
 }
 function normalizeName(n){
-  return n.trim().normalize("NFKC").toLowerCase();
+  const base = String(n).normalize("NFKC").trim();
+  const stripped = base
+    // 異体字セレクタ・ゼロ幅文字を除去(見た目が同じでも別コードポイントで重複判定を逃れるのを防ぐ)
+    .replace(/[\uFE00-\uFE0F\u200B-\u200D\uFEFF]/g, "")
+    // 絵文字・記号(Emoji, Symbol, Pictographなど)を除去して文字情報だけで比較する
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  // 絵文字のみの名前など、除去後に空になる場合は元の文字列で比較する(異なる絵文字名を誤って同一扱いしないため)
+  return stripped.length > 0 ? stripped : base.toLowerCase();
 }
 function shuffle(arr){
   for(let i=arr.length-1;i>0;i--){
@@ -1293,7 +1485,6 @@ function escapeHtml(str){
 
 render();
 </script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 </body>
 </html>
