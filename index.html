@@ -6171,7 +6171,7 @@ function renderPassDraw(){
     const [rawX,rawY]=pos(e);
     // 強力な手ブレ補正: 生の指の座標を指数移動平均で滑らかに追従させ、細かな震えを吸収する。
     // タッチ操作は特に揺れやすいので、係数を小さめにして補正を強くかける。
-    const SMOOTHING = e.pointerType === "touch" ? 0.35 : 0.55;
+    const SMOOTHING = e.pointerType === "touch" ? 0.16 : 0.45;
     smoothX += (rawX - smoothX) * SMOOTHING;
     smoothY += (rawY - smoothY) * SMOOTHING;
     const [x,y] = erasing ? [rawX,rawY] : [smoothX,smoothY]; // 消しゴムは即応性を優先して生座標を使う
@@ -6188,7 +6188,7 @@ function renderPassDraw(){
     points.push([x,y]);
     moved = true;
     // 入り(フェードイン): 描き始めの数点は徐々に太くして、プロが描いたような線の入りを再現する
-    const fadeIn = erasing ? 1 : Math.min(1, points.length/7);
+    const fadeIn = erasing ? 1 : Math.min(1, points.length/12);
     const w = erasing ? currentSize*3 : currentSize*speedFactor*fadeIn;
     canvasCtx.strokeStyle = strokeColor;
     canvasCtx.lineWidth = w;
@@ -6233,15 +6233,15 @@ function renderPassDraw(){
       const len = Math.hypot(dx,dy);
       if(len > 0.001){
         const ux = dx/len, uy = dy/len;
-        const totalExt = Math.min(10, currentSize*1.1);
-        const steps = 4;
+        const totalExt = Math.min(16, currentSize*1.8);
+        const steps = 7;
         let fromX = cx, fromY = cy;
         canvasCtx.strokeStyle = strokeColor;
         for(let s=1; s<=steps; s++){
           const t = s/steps;
           const toX = cx + ux*totalExt*t;
           const toY = cy + uy*totalExt*t;
-          canvasCtx.lineWidth = Math.max(1, currentSize*(1-t*0.85));
+          canvasCtx.lineWidth = Math.max(0.6, currentSize*(1-t*0.95));
           canvasCtx.beginPath();
           canvasCtx.moveTo(fromX,fromY);
           canvasCtx.lineTo(toX,toY);
