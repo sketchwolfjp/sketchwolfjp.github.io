@@ -754,7 +754,7 @@ let state = {
   timerOnEnd: null,
   hintTime: 10,
   drawSeconds: 45,
-  talkSeconds: 30,
+  talkSeconds: 180,
   playerColors: [],    // index -> hex color (fixed per player number)
 };
 
@@ -842,7 +842,7 @@ function renderCrash(err, entry){
           timerOnEnd:null,
           hintTime:10,
           drawSeconds:45,
-          talkSeconds:30,
+          talkSeconds:180,
           playerColors:[]
         };
         ERROR_MONITOR.crashRendering = false;
@@ -941,7 +941,7 @@ function setupGame(){
   state.topic = { citizen: pair[0], wolf: pair[1] };
   state.hintTime = Math.max(8, Math.round(60/state.players.length));
   state.drawSeconds = 45;
-  state.talkSeconds = 30;
+  state.talkSeconds = 180;
   const n = state.players.length;
   // プレイヤー番号 → 固定色を再ゲームでも番号基準で安定的に割り当てる。
   // 名前は localStorage に保存されており、プレイヤーの並び/順番は可変だが
